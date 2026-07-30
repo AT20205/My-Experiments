@@ -52,7 +52,7 @@ def update_silver_log(new_log_entries: list) -> None:
     # Read existing log data if it exists, otherwise write new DataFrame
     if os.path.exists(log_file_path):
         try:
-            existing_df = pd.read_excel(log_file_path)
+            existing_df = pd.read_excel(log_file_path, engine="openpyxl")
             # Prepend new records ahead of existing records
             combined_df = pd.concat([new_df, existing_df], ignore_index=True)
         except Exception as e:
@@ -61,7 +61,7 @@ def update_silver_log(new_log_entries: list) -> None:
     else:
         combined_df = new_df
 
-    combined_df.to_excel(log_file_path, index=False)
+    combined_df.to_excel(log_file_path, engine="openpyxl", index=False)
     print(f"📝 Scraping log updated at: {log_file_path}")
 
 
@@ -480,7 +480,7 @@ def run_scraper(
                     os.makedirs(output_dir, exist_ok=True)
 
                 file_path = os.path.join(output_dir, state_filename)
-                df.to_excel(file_path, index=False)
+                df.to_excel(file_path, engine="openpyxl", index=False)
                 print(f"✅ Total {len(df)} rows scraped and saved to {file_path}")
             else:
                 print(f"❌ Zero data entries found for State: {state_name}")
