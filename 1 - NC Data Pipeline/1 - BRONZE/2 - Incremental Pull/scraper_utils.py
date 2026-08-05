@@ -22,7 +22,7 @@ def update_silver_log(new_log_entries: list) -> None:
 
     placing the newest logs at the top.
     """
-    log_file_path = os.getenv("SILVERLOG")
+    log_file_path = os.getenv("BRONZELOG")
     if not log_file_path:
         print("⚠️ SILVERLOG environment variable not set. Skipping logging.")
         return
