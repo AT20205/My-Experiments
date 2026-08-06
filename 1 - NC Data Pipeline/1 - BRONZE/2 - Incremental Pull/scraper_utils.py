@@ -471,7 +471,7 @@ def run_scraper(
                     .strip()
                     .replace(" ", "_")
                 )
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                timestamp = datetime.now().strftime("%Y%m%d")
                 state_filename = f"SEIAA_{clean_state_name}_{timestamp}.xlsx"
 
                 date_folder = datetime.now().strftime("%Y-%m-%d")
