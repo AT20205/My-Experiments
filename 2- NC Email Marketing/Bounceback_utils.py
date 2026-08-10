@@ -43,7 +43,7 @@ def update_excel_with_bounces(
     print("[INFO] Starting email processing...")
 
     # Fallback to environment variables if parameters are not explicitly passed
-    excel_file_path = excel_file_path or os.getenv("email")
+    excel_file_path = excel_file_path or os.getenv("emailMDB")
     sender_email = sender_email or os.getenv("GMAIL_USER2")
     app_password = app_password or os.getenv("GMAIL_APP_PASSWORD2")
 

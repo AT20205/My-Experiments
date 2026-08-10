@@ -101,7 +101,7 @@ def create_batch_email(bcc_emails, pdf_data, pdf_name):
 
 
 def send_bulk_emails_safely(excel_file_path=None, attachment_path=None, batch_size=100):
-    """Batches emails into groups of 100 in BCC and saves them as drafts via IMAP."""
+    """Saves a single draft email via IMAP containing up to batch_size eligible BCC recipients."""
     print("--- Starting Bulk Email Draft Creation Process ---")
     
     target_excel = Path(excel_file_path or EXCEL_FILE_PATH)
@@ -178,6 +178,11 @@ def send_bulk_emails_safely(excel_file_path=None, attachment_path=None, batch_si
         print("No eligible emails found to process. Exiting.")
         return
 
+    # Select only the first batch of eligible emails
+    first_batch = eligible_items[:batch_size]
+    batch_indices = [item[0] for item in first_batch]
+    batch_emails = [item[1] for item in first_batch]
+
     failed_batches = []
 
     try:
@@ -186,57 +191,41 @@ def send_bulk_emails_safely(excel_file_path=None, attachment_path=None, batch_si
             imap.login(SENDER_EMAIL, APP_PASSWORD)
             print("Successfully logged into Gmail via IMAP.")
 
-            total_batches = (len(eligible_items) + batch_size - 1) // batch_size
-            print(f"Total batches to create: {total_batches} (Batch Size: {batch_size})")
+            print(f"\nProcessing single draft ({len(batch_emails)} recipients)...")
 
-            for b_idx in range(total_batches):
-                start_i = b_idx * batch_size
-                end_i = start_i + batch_size
-                current_batch = eligible_items[start_i:end_i]
+            msg = create_batch_email(batch_emails, pdf_data, pdf_name)
+            timestamp_str = now.strftime("%Y-%m-%d")
 
-                batch_indices = [item[0] for item in current_batch]
-                batch_emails = [item[1] for item in current_batch]
+            try:
+                # Append email to [Gmail]/Drafts folder
+                print("Saving single draft to '[Gmail]/Drafts'...")
+                imap.append(
+                    "[Gmail]/Drafts",
+                    "\\Draft",
+                    imaplib.Time2Internaldate(time.time()),
+                    msg.as_bytes(),
+                )
 
-                print(f"\nProcessing Batch {b_idx + 1}/{total_batches} ({len(batch_emails)} recipients)...")
+                # Update Excel status upon saving draft
+                print("Draft saved successfully. Updating Excel statuses to 'Sent' and current date...")
+                for idx in batch_indices:
+                    df.at[idx, "Last Sent Date"] = timestamp_str
+                df.to_excel(target_excel, index=False)
+                print("Excel file updated.")
 
-                msg = create_batch_email(batch_emails, pdf_data, pdf_name)
-                timestamp_str = now.strftime("%Y-%m-%d")
+            except Exception as err:
+                print(f"Failed to save draft: {err}")
+                for idx in batch_indices:
+                    df.at[idx, "Last Sent Date"] = f"Failed: {err}"
+                df.to_excel(target_excel, index=False)
 
-                try:
-                    # Append email to [Gmail]/Drafts folder
-                    print(f"Saving draft to '[Gmail]/Drafts' for Batch {b_idx + 1}...")
-                    imap.append(
-                        "[Gmail]/Drafts",
-                        "\\Draft",
-                        imaplib.Time2Internaldate(time.time()),
-                        msg.as_bytes(),
-                    )
-
-                    # Update Excel status upon saving draft
-                    print("Draft saved successfully. Updating Excel statuses to 'Sent' and current date...")
-                    for idx in batch_indices:
-                        df.at[idx, "Last Sent Date"] = timestamp_str
-                    df.to_excel(target_excel, index=False)
-                    print("Excel file updated.")
-
-                except Exception as err:
-                    print(f"Failed to save draft for Batch {b_idx + 1}: {err}")
-                    for idx in batch_indices:
-                        df.at[idx, "Last Sent Date"] = f"Failed: {err}"
-                    df.to_excel(target_excel, index=False)
-
-                    failed_batches.append(b_idx + 1)
-
-                if b_idx < total_batches - 1:
-                    wait_time = random.randint(5, 10)
-                    print(f"Waiting {wait_time} seconds before processing next batch...")
-                    time.sleep(wait_time)
+                failed_batches.append(1)
 
     except Exception as e:
         print(f"An IMAP/Connection error occurred: {e}")
 
     print("\n--- Process Finished ---")
     if failed_batches:
-        print(f"Batches that encountered errors: {failed_batches}")
+        print("The draft creation encountered an error.")
     else:
-        print("All batches processed and saved to Drafts successfully!")
+        print("Draft saved to Drafts successfully!")
